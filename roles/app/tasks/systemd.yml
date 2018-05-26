@@ -1,0 +1,24 @@
+---
+
+- name: copy systemd config files
+  template:
+    src: 'etc/systemd/system/{{ item }}.service.j2'
+    dest: '/etc/systemd/system/{{ item }}.service'
+    owner: 'root'
+    group: 'root'
+    mode: '0644'
+  with_items:
+    - unicorn
+    - thin
+  when: ((ansible_service_mgr|d()) and
+        (ansible_service_mgr in [ "systemd" ]))
+
+- name: enable start systemd services on boot
+  service:
+    name: '{{ item }}'
+    enabled: 'yes'
+  with_items:
+    - unicorn
+    - thin
+  when: ((ansible_service_mgr|d()) and
+        (ansible_service_mgr in [ "systemd" ]))

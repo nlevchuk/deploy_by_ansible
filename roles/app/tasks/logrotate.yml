@@ -1,0 +1,9 @@
+---
+
+- name: copy logrotate config file
+  template:
+    src: "etc/logrotate.d/app.j2"
+    dest: '/etc/logrotate.d/app'
+    owner: 'root'
+    group: 'root'
+    mode: '0644'

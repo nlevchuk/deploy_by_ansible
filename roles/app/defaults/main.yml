@@ -1,0 +1,10 @@
+---
+
+app_user: "app"
+app_group: "app"
+
+user_home: "/home/{{ app_user }}"
+release_path: "{{ user_home }}/releases/{{ ansible_date_time.iso8601_basic_short }}"
+shared_path: "{{ user_home }}/shared"
+app_bin_path: "{{ shared_path }}/bin"
+app_keep_releases: 5

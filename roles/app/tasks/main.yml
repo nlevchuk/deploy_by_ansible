@@ -1,0 +1,8 @@
+---
+
+- include: logrotate.yml
+- include: systemd.yml
+- include: web_servers.yml  status=stop
+- include: deploy.yml
+- include: apache.yml
+- include: web_servers.yml  status=start

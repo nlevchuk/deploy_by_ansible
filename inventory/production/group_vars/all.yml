@@ -1,0 +1,4 @@
+---
+
+app_domain: 'example.com'
+app_environment: "production"

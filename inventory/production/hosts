@@ -1,0 +1,8 @@
+[app]
+example.com
+
+[all:children]
+app
+
+[all:vars]
+ansible_user=ansible

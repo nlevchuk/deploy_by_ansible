@@ -1,0 +1,8 @@
+[app]
+127.0.0.1
+
+[all:children]
+app
+
+[all:vars]
+ansible_user=ansible

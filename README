@@ -1,0 +1,7 @@
+Deploy your Ruby on Rails application using ansible. Just copy code from files and paste
+in your ansible repo according to ansible file structure. Do not forget to replace variables to yours.
+
+All system config files in templates/ directory for CentOS operating system.
+Selinux rules for apache included.
+
+Inspired by the [article](https://habr.com/post/266353/)

@@ -1,0 +1,112 @@
+---
+
+- name: check or create directories
+  file:
+    path:    "{{ item }}"
+    owner:   "{{ app_user }}"
+    group:   "{{ app_group }}"
+    state:   "directory"
+    mode:    "0755"
+  with_items:
+    - "{{ user_home }}/"
+    - "{{ user_home }}/releases"
+    - "{{ release_path }}"
+    - "{{ shared_path }}"
+    - "{{ shared_path }}/bin"
+    - "{{ shared_path }}/bundle"
+    - "{{ shared_path }}/log"
+    - "{{ shared_path }}/public"
+    - "{{ shared_path }}/public/assets"
+    - "{{ shared_path }}/public/system"
+    - "{{ shared_path }}/tmp"
+    - "{{ shared_path }}/tmp/cache"
+    - "{{ shared_path }}/tmp/pids"
+
+- name: upload the app to remote release path
+  synchronize:
+    src: '../../../../'
+    dest: '{{ release_path }}'
+    delete: yes
+    recursive: yes
+    rsync_path: "sudo -u {{ app_user }} rsync"
+    rsync_opts:
+      - '--exclude=.*/'
+      - '--exclude=/spec'
+      - '--exclude=/features'
+      - '--exclude=/log'
+      - '--exclude=/tmp'
+
+- name: get current git head hash
+  connection: local
+  shell: "git rev-parse HEAD"
+  register: git_head_hash
+
+- name: create revision file in the release path
+  copy:
+    content: "{{ git_head_hash.stdout }}"
+    dest: "{{ release_path }}/REVISION"
+  become_user: "{{ app_user }}"
+
+- name: copy config and public files
+  template:
+    src: "{{ user_home }}/{{ item }}.j2"
+    dest: "{{ release_path }}/{{ item }}"
+    mode: "0644"
+  with_items:
+    - "config/database.yml"
+    - "config/thin.yml"
+    - "config/unicorn.rb"
+    - "public/robots.txt"
+  become_user: "{{ app_user }}"
+  no_log: True
+
+- name: create shared -> release symlinks
+  file:
+    src:   "{{ shared_path }}/{{ item }}"
+    dest:  "{{ release_path }}/{{ item }}"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    state: link
+    force: yes
+  with_items:
+    - "bin"
+    - "log"
+    - "public/assets"
+    - "tmp"
+
+- name: install bundler
+  shell: "gem install bundler -v 1.10.6 --user-install --bindir {{ app_bin_path }}"
+  args:
+    creates: "{{ app_bin_path }}/bundle"
+  become_user: "{{ app_user }}"
+
+- name: run bundle install
+  bundler:
+    executable: "{{ shared_path }}/bin/bundle"
+    state: present
+    gemfile: '{{ release_path }}/Gemfile'
+    binstub_directory: "{{ app_bin_path }}"
+    gem_path: "{{ shared_path }}/bundle"
+    deployment_mode: yes
+  become_user: "{{ app_user }}"
+
+- name: run rake commands
+  shell: "bundle exec rake {{ item }}"
+  environment:
+    PATH: "{{ app_bin_path }}:{{ lookup('env', 'PATH') }}"
+    RAILS_ENV: "{{ app_environment }}"
+  args:
+    chdir: "{{ release_path }}"
+  become_user: "{{ app_user }}"
+  with_items:
+    - db:migrate
+    - db:seed
+    - assets:precompile
+
+- name: create symlink to new release
+  file:
+    src:  "{{ release_path }}"
+    dest: "{{ user_home }}/current"
+    state: link
+    force: yes
+  become_user: "{{ app_user }}"

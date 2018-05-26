@@ -1,0 +1,51 @@
+---
+
+- name: check public directory for maintenance file
+  file:
+    path:    "{{ shared_path }}/public"
+    owner:   "{{ app_user }}"
+    group:   "{{ app_group }}"
+    state:   "directory"
+  when: status == 'stop'
+
+- name: enable maintenance mode
+  file:
+    path: "{{ shared_path }}/public/maintenance"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    state: touch
+  when: status == 'stop'
+
+- name: stop web servers
+  service:
+    name: '{{ item }}'
+    state: stopped
+  with_items:
+    - unicorn
+    - thin
+  when: status == 'stop'
+
+- name: keep only few last releases
+  shell: "find ./ -maxdepth 1 |
+          grep -G .............. |
+          sort -r |
+          tail -n +{{ app_keep_releases }} |
+          xargs rm -rf"
+  args:
+    chdir: "{{ user_home }}/releases"
+  when: status == 'start'
+
+- name: start web servers
+  service:
+    name: '{{ item }}'
+    state: started
+  with_items:
+    - unicorn
+    - thin
+  when: status == 'start'
+
+- name: disable maintenance mode
+  file:
+    path: "{{ shared_path }}/public/maintenance"
+    state: absent
+  when: status == 'start'

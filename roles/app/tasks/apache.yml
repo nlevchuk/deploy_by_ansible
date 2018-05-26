@@ -1,0 +1,47 @@
+---
+
+- name: copy apache config file
+  template:
+    src: "etc/httpd/conf.d/app.conf.j2"
+    dest: "/etc/httpd/conf.d/app.conf"
+    owner: 'root'
+    group: 'root'
+    mode: '0644'
+  notify: [ 'apache restart' ]
+
+- name: allow apache network connection to thin & unicorn (selinux)
+  seboolean:
+    name: "{{ item }}"
+    state: yes
+    persistent: yes
+  with_items:
+    - httpd_can_network_connect_db
+    - httpd_can_network_connect
+  when: ansible_selinux|d()
+
+# https://red.ht/2GJVVcN
+- name: allow apache handling directories and files (set rules, not directly applied)
+  shell: "semanage fcontext -a -t httpd_sys_content_t {{ item }}"
+  with_items:
+    - "'{{ user_home }}/current'"
+    - "'{{ release_path }}/public(/.*)?'"
+    - "'{{ shared_path }}/public(/.*)?'"
+    - "'{{ shared_path }}/tmp(/.*)?'"
+  when: ansible_selinux|d()
+
+- name: allow apache handling directories and files (restore selinux context)
+  shell: 'restorecon -R -v {{ item }}'
+  with_items:
+    - "{{ app_root }}/current"
+    - "{{ release_path }}/public"
+    - "{{ shared_path }}/public"
+    - "{{ shared_path }}/tmp"
+  when: ansible_selinux|d()
+
+- name: create symlink to public folder
+  file:
+    src:  "{{ release_path }}/public"
+    dest: "{{ shared_path }}/public/app"
+    state: link
+    force: yes
+  become_user: "{{ app_user }}"
